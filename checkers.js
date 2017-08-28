@@ -17,6 +17,7 @@ var state = {
     ['b',null,'b',null,'b',null,'b',null,'b',null]
   ]
 }
+// one row was missing
 
 /** @function getLegalMoves
   * returns a list of legal moves for the specified
@@ -95,7 +96,6 @@ function copyJumps(jumps) {
   * @param {integer} y - the current y position of the peice
   */
 function checkJump(moves, jumps, piece, x, y) {
-  //console.log("checkJump: " + x + " " + y);
   switch(piece) {
     case 'b': // black can only move down the board diagonally
       checkLanding(moves, copyJumps(jumps), piece, x-1, y+1, x-2, y+2);
@@ -131,10 +131,8 @@ function checkJump(moves, jumps, piece, x, y) {
   */
 function checkLanding(moves, jumps, piece, cx, cy, lx, ly) {
   // Check landing square is on grid
-  //console.log("checking landing for " + cy + "-" + cx + " " + ly + "-" + lx);
   if(lx < 0 || lx > 9 || ly < 0 || ly > 9) return;
   // Check landing square is unoccupied
-  //console.log("board[" + ly + "][" + lx + "]: ");// + state.board[ly][lx]);
   if(state.board[ly][lx]) return;
   // Check capture square is occuped by opponent
   if(piece == 'b' || 'bk' && state.board[cy][cx] != 'w' || state.board[cy][cx] != 'wk') return;
@@ -156,9 +154,6 @@ function checkLanding(moves, jumps, piece, cx, cy, lx, ly) {
   * @param {object} move - the move to apply.
   */
 function applyMove(move, currX, currY) {
-  // TODO: Apply the move
-  // TODO: Check for victory
-  // TODO: Start the next turn
   if (move.type === "slide")
   {
   	state.board[move.x][move.y] = state.board[currX][currY]
@@ -236,13 +231,12 @@ function findPlayableMove()
     for (y = 0; y < 10; y++)
     {
       var piece = state.board[x][y];
-      //console.log("piece at " + x + "-" + y + ": " + piece);
-      if (piece !== state.turn)//(piece != 'w' && piece != 'b' && piece != 'wk' && piece != 'bk') 
+      if (piece !== state.turn)
         continue;
       var moves = getLegalMoves(state.turn,x,y);
       if (moves.length > 0)
       {
-        console.log ("moving piece at " + x + "-" + y + ": type " + moves[0].type + ", x: " + moves[0].x + ", y: " + moves[0].y);
+        console.log ("turn: " + state.turn + ", moving piece at " + x + "-" + y + ": type " + moves[0].type + ", newx: " + moves[0].x + ", newy: " + moves[0].y);
 
         applyMove(moves[0],x,y);
         return;
@@ -255,7 +249,7 @@ function findPlayableMove()
 
 function main()
 {
-  console.log("Hello world!");
+  // just a couple of turns
   //while (!state.over)
   {
     printBoard();
