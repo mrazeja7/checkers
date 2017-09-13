@@ -44,3 +44,7 @@
 .selected-cap {
 	background-color: darkred;
 }
+
+.square.droptarget{
+	background-color:orange;
+}

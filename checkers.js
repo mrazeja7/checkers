@@ -155,7 +155,7 @@ function checkLanding(moves, jumps, piece, cx, cy, lx, ly) {
   */
 function applyMove(x, y, move) {
   // TODO: Apply the move
-  if(move.type === "slide") {
+  if(move.type === 'slide') {
     state.board[move.y][move.x] = state.board[y][x];
     state.board[y][x] = null;
   } else {
@@ -200,7 +200,7 @@ function nextTurn() {
 
 function deselectAll()
 {
-  var allCheckers = document.querySelectorAll('.selected,.selected-sq,.selected-cap');//document.getElementsByClassName('selected');
+  var allCheckers = document.querySelectorAll('.selected,.selected-sq,.selected-cap,.droptarget');//document.getElementsByClassName('selected');
   console.log("len: " + allCheckers.length);
   console.log(allCheckers);
 
@@ -209,6 +209,7 @@ function deselectAll()
     allCheckers[i].classList.remove('selected');
     allCheckers[i].classList.remove('selected-sq');
     allCheckers[i].classList.remove('selected-cap');
+    allCheckers[i].classList.remove('droptarget');
   }
 }
 
@@ -241,10 +242,40 @@ function handleCheckerClick(event)
     if(move.type === 'slide') {
       var square = document.getElementById('square-' + move.x + "-" + move.y);
       square.classList.add('selected-sq');
+      square.ondragover = handleDragOverSquare;
+      square.ondragleave = handleDragLeaveSquare;
+      square.ondrop = handleDropSquare;
+      square.dataset.moves = move;
     } else {
       selectJumps(move);
     }
   });
+}
+
+function handleDragOverSquare (event) {
+    event.preventDefault();
+    event.target.classList.add('droptarget');
+}
+
+function handleDragLeaveSquare (event) {
+    event.preventDefault();
+    event.target.classList.remove('droptarget');
+}
+
+function handleDropSquare (event) {
+    event.preventDefault();
+    var parentId = event.target.id;
+    console.log("parentId: " + parentId);
+    var x = parseInt(parentId.charAt(7));
+    var y = parseInt(parentId.charAt(9));
+    console.log("moves: " + event.target.dataset.move);
+    //applyMove(x,y,event.target.dataset.move);
+    switch(event.target.dataset.move){
+      case 'slide':
+        var checker = event.target.parent.removeChild(event.target);
+        event.currentTarget.appendChild(checker);
+      break;
+    }
 }
 
 function setup()
