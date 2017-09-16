@@ -2,6 +2,7 @@
 
 /** The state of the game */
 var state = {
+  action: 'idle',
   over: false,
   turn: 'b',
   board: [
@@ -9,15 +10,17 @@ var state = {
     ['w',null,'w',null,'w',null,'w',null,'w',null],
     [null,'w',null,'w',null,'w',null,'w',null,'w'],
     ['w',null,'w',null,'w',null,'w',null,'w',null],
-    [null, 'b', null, null, null, null, null, null, null, null],
+    [null, null, null, null, null, null, null, null, null, null],
     [null, null, null, null, null, null, null, null, null, null],
     [null,'b',null,'b',null,'b',null,'b',null,'b'],
-    ['b',null,'b',null,null,null,'b',null,'b',null],
+    ['b',null,'b',null,'b',null,'b',null,'b',null],
     [null,'b',null,'b',null,'b',null,'b',null,'b'],
     ['b',null,'b',null,'b',null,'b',null,'b',null]
   ],
   captures: {w: 0, b: 0}
 }
+
+var ctx;
 
 /** @function getLegalMoves
   * returns a list of legal moves for the specified
@@ -34,12 +37,12 @@ function getLegalMoves(piece, x, y) {
     case 'b': // black can only move down the board diagonally
       checkSlide(moves, x-1, y-1);
       checkSlide(moves, x+1, y-1);
-      checkJump(moves, {captures:[],landings:[]}, piece, x, y);
+      checkJump(moves, {captures:[],landings:[], x:x, y:y}, piece, x, y);
       break;
     case 'w':  // white can only move up the board diagonally
       checkSlide(moves, x-1, y+1);
       checkSlide(moves, x+1, y+1);
-      checkJump(moves, {captures:[],landings:[]}, piece, x, y);
+      checkJump(moves, {captures:[],landings:[], x:x, y:y}, piece, x, y);
       break;
     case 'bk': // kings can move diagonally any direction
     case 'wk': // kings can move diagonally any direction
@@ -47,7 +50,7 @@ function getLegalMoves(piece, x, y) {
       checkSlide(moves, x+1, y+1);
       checkSlide(moves, x-1, y-1);
       checkSlide(moves, x+1, y-1);
-      checkJump(moves, {captures:[],landings:[]}, piece, x, y);
+      checkJump(moves, {captures:[],landings:[], x:x, y:y}, piece, x, y);
       break;
   }
   return moves;
@@ -78,6 +81,8 @@ function copyJumps(jumps) {
   // Use Array.prototype.slice() to create a copy
   // of the landings and captures array.
   var newJumps = {
+    x: jumps.x,
+    y: jumps.y,
     landings: jumps.landings.slice(),
     captures: jumps.captures.slice()
   }
@@ -130,13 +135,17 @@ function checkJump(moves, jumps, piece, x, y) {
   * @param {integer} ly - the 'landing' y position of the peice is jumping onto
   */
 function checkLanding(moves, jumps, piece, cx, cy, lx, ly) {
+  // Check that we're not jumping back to our starting position
+  if(lx == jumps.x && ly == jumps.y) return;
   // Check landing square is on grid
   if(lx < 0 || lx > 9 || ly < 0 || ly > 9) return;
   // Check landing square is unoccupied
   if(state.board[ly][lx]) return;
-  // Check capture square is occuped by opponent
-  if((piece === 'b' || piece === 'bk') && !(state.board[cy][cx] === 'w' || state.board[cy][cx] === 'wk')) return;
-  if((piece === 'w' || piece === 'wk') && !(state.board[cy][cx] === 'b' || state.board[cy][cx] === 'bk')) return;
+  // Check capture square is occupied by opponent
+  if(state.turn === 'b' && !(state.board[cy][cx] === 'w' || state.board[cy][cx] === 'wk')) return;
+  if(state.turn === 'w' && !(state.board[cy][cx] === 'b' || state.board[cy][cx] === 'bk')) return;
+  // Check that we haven't landed on this square previously
+  if(0 < jumps.landings.indexOf(function(landing){return landing.x == lx && landing.y == ly;})) return;
   // legal jump! add it to the moves list
   jumps.captures.push({x: cx, y: cy});
   jumps.landings.push({x: lx, y: ly});
@@ -155,7 +164,7 @@ function checkLanding(moves, jumps, piece, cx, cy, lx, ly) {
   */
 function applyMove(x, y, move) {
   // TODO: Apply the move
-  if(move.type === 'slide') {
+  if(move.type === "slide") {
     state.board[move.y][move.x] = state.board[y][x];
     state.board[y][x] = null;
   } else {
@@ -198,111 +207,159 @@ function nextTurn() {
   else state.turn = 'b';
 }
 
-function deselectAll()
-{
-  var allCheckers = document.querySelectorAll('.selected,.selected-sq,.selected-cap,.droptarget');//document.getElementsByClassName('selected');
-  console.log("len: " + allCheckers.length);
-  console.log(allCheckers);
+/** @function renderChecker
+  * Renders a checker at the specified position
+  */
+function renderChecker(piece, x, y) {
+  ctx.beginPath();
+  if(state.board[y][x].charAt(0) === 'w') {
+    ctx.fillStyle = '#fff';
+  } else {
+    ctx.fillStyle = '#000';
+  }
+  ctx.arc(x*100+50, y*100+50, 40, 0, Math.PI * 2);
+  ctx.fill();
+  // TODO: Add a crown for kings
+}
 
-  for (var i = allCheckers.length-1; i >= 0 ; i--)
-  {
-    allCheckers[i].classList.remove('selected');
-    allCheckers[i].classList.remove('selected-sq');
-    allCheckers[i].classList.remove('selected-cap');
-    allCheckers[i].classList.remove('droptarget');
+/** @function renderSquare
+  * Renders a single square on the game board
+  * as well as any checkers on it.
+  */
+function renderSquare(x,y) {
+  if((x + y) % 2 == 1) {
+    ctx.fillStyle = '#888';
+    ctx.fillRect(x*100, y*100, 100, 100);
+    if(state.board[y][x]) {
+      renderChecker(state.board[y][x], x, y);
+    }
   }
 }
 
-function selectJumps(move) {
-  move.landings.forEach(function(landing) {
-    var square = document.getElementById('square-' + landing.x + "-" + landing.y);
-    square.classList.add('selected-sq');
-  });
-  move.captures.forEach(function(capture) {
-    var square = document.getElementById('square-' + capture.x + "-" + capture.y);
-    square.classList.add('selected-cap');
-  });
-}
-
-function handleCheckerClick(event)
-{  
-  deselectAll();
-  event.preventDefault();
-  var parentId = event.target.parentElement.id;
-  var x = parseInt(parentId.charAt(7));
-  var y = parseInt(parentId.charAt(9));
-  console.log("x: " + x + " y: " + y);
-
-  var checker = event.target;
-  checker.classList.add('selected');
-
-  moves = getLegalMoves(state.board[y][x], x, y);
-  
-  moves.forEach(function(move, index) {
-    if(move.type === 'slide') {
-      var square = document.getElementById('square-' + move.x + "-" + move.y);
-      square.classList.add('selected-sq');
-      square.ondragover = handleDragOverSquare;
-      square.ondragleave = handleDragLeaveSquare;
-      square.ondrop = handleDropSquare;
-      square.dataset.moves = move;
-    } else {
-      selectJumps(move);
+/** @function renderBoard()
+  * Renders the entire game board.
+  */
+function renderBoard() {
+  if(!ctx) return;
+  for(var y = 0; y < 10; y++) {
+    for(var x = 0; x < 10; x++) {
+      renderSquare(x, y);
     }
-  });
+  }
 }
 
-function handleDragOverSquare (event) {
-    event.preventDefault();
-    event.target.classList.add('droptarget');
-}
-
-function handleDragLeaveSquare (event) {
-    event.preventDefault();
-    event.target.classList.remove('droptarget');
-}
-
-function handleDropSquare (event) {
-    event.preventDefault();
-    var parentId = event.target.id;
-    console.log("parentId: " + parentId);
-    var x = parseInt(parentId.charAt(7));
-    var y = parseInt(parentId.charAt(9));
-    console.log("moves: " + event.target.dataset.move);
-    //applyMove(x,y,event.target.dataset.move);
-    switch(event.target.dataset.move){
-      case 'slide':
-        var checker = event.target.parent.removeChild(event.target);
-        event.currentTarget.appendChild(checker);
-      break;
-    }
-}
-
-function setup()
+function boardPosition(x, y)
 {
-  var board = document.createElement('section');
-  board.id = 'game-board';
-  document.body.appendChild(board);
-  for (var i = 0; i < state.board.length; i++) 
+  var boardX = Math.floor(event.clientX / 50);
+  var boardY = Math.floor(event.clientY / 50);
+  return ({x: boardX, y: boardY});
+}
+function handleMouseDown(event)
+{
+  var position = boardPosition(event.clientX, event.clientY);
+  var x = position.x;
+  var y = position.y;
+  if (x < 0 || x > 9 || y < 0 || y > 9) 
+    return;
+
+  if (state.board[y][x] && state.board[y][x].charAt(0) == state.turn)
   {
-    for (var j = 0; j < state.board[i].length; j++)
+    state.movingPiece = {
+      piece: state.board[y][x],
+      startPosition: {x: x, y: y},
+      currentLocation: boardPosition(event.clientX, event.clientY)
+    }
+    state.board[y][x] = null;
+    renderBoard();
+    state.action = 'dragging';
+  }
+}
+
+function handleMouseUp(event)
+{
+  if (state.action == 'dragging')
+  {
+    var position = boardPosition(event.clientX, event.clientY);
+    var x = position.x;
+    var y = position.y;
+    if (x < 0 || x > 9 || y < 0 || y > 9) 
     {
-      var square = document.createElement('div');
-      square.id = ('square-' + j + '-' + i);
-      square.classList.add('square');
-      if ((i+j) % 2 == 1)
-        square.classList.add('black');
-      if (state.board[i][j])
-      {
-        var checker = document.createElement('div');
-        checker.classList.add('checker');
-        checker.classList.add('checker-' + state.board[i][j]);
-        checker.onclick = handleCheckerClick;
-        square.appendChild(checker);
-      }
-      board.appendChild(square);
+      var sx = state.movingPiece.startPosition.x;
+      var sy = state.movingPiece.startPosition.y;
+      state.board[y][x] = state.movingPiece.piece;
+      state.movingPiece = null;
+      renderBoard();
+      return;
     }
   }
+  var lx = state.movingPiece.currentLocation.x;
+  var ly = state.movingPiece.currentLocation.y;
+  state.board[ly][lx] = state.movingPiece.piece;
+  state.action = 'idle';
+  state.movingPiece = null;
+  renderBoard();
+  return;
+}
+
+function renderDragging()
+{
+  ctx.fillStyle = 'green';
+  ctx.beginPath();
+  ctx.arc(
+    state.movingPiece.currentLocation.x*100+50,
+    state.movingPiece.currentLocation.y*100+50,
+    40,0,Math.PI*2);
+  ctx.stroke();
+}
+
+function handleMouseMove(event) {
+  renderBoard();
+  switch(state.action) {
+    case 'idle':
+      hoverOverChecker(event);
+      break;
+    case 'dragging':
+      // render ghost, render floating checker
+      state.movingPiece.currentLocation = boardPosition(event.clientX, event.clientY);
+      renderDragging();
+      break;
+  }
+}
+
+/** @function hoverOverChecker
+  * Event handler for when a player is deciding
+  * where to move.
+  */
+function hoverOverChecker(event) {
+  // Make sure we have a canvas context to render to
+  if(!ctx) return;
+  var x = Math.floor(event.clientX / 50);
+  var y = Math.floor(event.clientY / 50);
+  // Adjust for scrolling
+  // Avoid array out-of-bounds issues.
+  if(x < 0 || y < 0 || x > 9 || y > 9) return;
+  // Make sure we're over the current player
+  if(state.board[y][x] && state.board[y][x].charAt(0) === state.turn) {
+    // Highlight the checker to move
+    ctx.strokeWidth = 15;
+    ctx.strokeStyle = "yellow";
+    ctx.beginPath();
+    ctx.arc(x*100+50, y*100+50, 40, 0, Math.PI * 2);
+    ctx.stroke();
+    // TODO: Highlight possible moves
+  }
+}
+
+function setup() {
+  var canvas = document.createElement('canvas');
+  canvas.width = 1000;
+  canvas.height = 1000;
+  canvas.onmousemove = handleMouseMove;
+  canvas.onmousedown = handleMouseDown;
+  canvas.onmouseup = handleMouseUp;
+  document.body.appendChild(canvas);
+  ctx = canvas.getContext('2d');
+  renderBoard();
 }
 
 setup();
